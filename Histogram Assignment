@@ -1,0 +1,41 @@
+import hashlib
+import matplotlib.pyplot as plt
+
+def sha256_hash_lines(filename):
+  
+    with open(filename, 'r') as file:
+        lines = file.readlines()
+    
+    unique_lines = set(line.strip() for line in lines if line.strip())
+    hash_dict = {line: hashlib.sha256(line.encode()).hexdigest() for line in unique_lines}
+    return hash_dict
+
+def hex_to_int(hash_dict):
+
+    return [int(hash_value, 16) for hash_value in hash_dict.values()]
+
+def plot_histogram(int_values):
+
+    plt.figure(figsize=(10, 6))
+    plt.hist(int_values, bins=20, edgecolor='black')
+    plt.title('Histogram of SHA-256 Integer Values')
+    plt.xlabel('Integer Value')
+    plt.ylabel('Frequency')
+    plt.show()
+
+if __name__ == "__main__":
+    filename = "wordcount.txt"
+    
+    # Step 1: Calculate hash codes
+    hash_dict = sha256_hash_lines(filename)
+    
+    # Step 2: Convert hex to integers
+    int_values = hex_to_int(hash_dict)
+    
+    # Print hashes
+    print("SHA-256 Hashes of Unique Lines:")
+    for line, hash_val in hash_dict.items():
+        print(f"{line}: {hash_val}")
+    
+    # Step 3: Plot histogram 
+    plot_histogram(int_values)
