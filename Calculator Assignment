@@ -1,0 +1,107 @@
+#Function to define operator precedence
+def precedence(op):
+    if op == '+' or op == '-':
+        return 1
+    if op == '*':
+        return 2
+    return 0
+
+#Function to perform arithmetic operations
+def apply_op(a, b, op):
+    a, b = int(a), int(b)
+    if op == '+': return a + b
+    if op == '-': return a - b
+    if op == '*': return a * b
+
+#Infix to Postfix conversion
+def infix_to_postfix(infix: str) -> str:
+    stack = []
+    output = []
+    tokens = infix.split()
+
+    for token in tokens:
+        if token.isdigit():
+            output.append(token)
+        elif token == '(':
+            stack.append(token)
+        elif token == ')':
+            while stack and stack[-1] != '(':
+                output.append(stack.pop())
+            stack.pop()  
+        else:  
+            while stack and precedence(stack[-1]) >= precedence(token):
+                output.append(stack.pop())
+            stack.append(token)
+
+    while stack:
+        output.append(stack.pop())
+
+    return ' '.join(output)
+
+#Infix to Prefix conversion
+def infix_to_prefix(infix: str) -> str:
+    #Reverse the infix expression
+    tokens = infix.split()[::-1]
+
+    #Swap parentheses
+    for i in range(len(tokens)):
+        if tokens[i] == '(':
+            tokens[i] = ')'
+        elif tokens[i] == ')':
+            tokens[i] = '('
+
+    #Get postfix of reversed expression
+    reversed_postfix = infix_to_postfix(' '.join(tokens))
+
+    #Reverse postfix to get prefix
+    prefix = reversed_postfix.split()[::-1]
+    return ' '.join(prefix)
+
+#Evaluate Postfix expression
+def evaluate_postfix(postfix: str) -> int:
+    stack = []
+    tokens = postfix.split()
+
+    for token in tokens:
+        if token.isdigit():
+            stack.append(token)
+        else:
+            b = stack.pop()
+            a = stack.pop()
+            result = apply_op(a, b, token)
+            stack.append(result)
+
+    return stack[0]
+
+#Evaluate Prefix expression
+def evaluate_prefix(prefix: str) -> int:
+    stack = []
+    tokens = prefix.split()[::-1]
+
+    for token in tokens:
+        if token.isdigit():
+            stack.append(token)
+        else:
+            a = stack.pop()
+            b = stack.pop()
+            result = apply_op(a, b, token)
+            stack.append(result)
+
+    return stack[0]
+
+
+#Main program
+if __name__ == "__main__":
+    infix_expr = input("Enter an infix expression (use spaces between tokens): ")
+
+    postfix_expr = infix_to_postfix(infix_expr)
+    prefix_expr = infix_to_prefix(infix_expr)
+
+    print(f"\nPostfix notation: {postfix_expr}")
+    print(f"Prefix notation: {prefix_expr}")
+
+    postfix_result = evaluate_postfix(postfix_expr)
+    prefix_result = evaluate_prefix(prefix_expr)
+
+    print(f"\nPostfix Evaluation Result: {postfix_result}")
+    print(f"Prefix Evaluation Result: {prefix_result}")
