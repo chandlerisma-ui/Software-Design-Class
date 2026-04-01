@@ -1,2 +1,2 @@
-# CS-School-Projects
+# Software Design
 FAU COP Assignments
