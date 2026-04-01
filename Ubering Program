@@ -1,0 +1,247 @@
+from abc import ABC, abstractmethod
+from enum import Enum
+from typing import List, Optional
+
+class RideType(Enum):
+    ECONOMY = "Economy"
+    LUXURY = "Luxury"
+    POOL = "Pool"
+
+class DriverStatus(Enum):
+    AVAILABLE = "available"
+    OCCUPIED = "occupied"
+
+#(Open/Closed Principle)
+class FareCalculator(ABC):
+    @abstractmethod
+    def calculate_fare(self, distance: float) -> float:
+        pass
+
+class EconomyFareCalculator(FareCalculator):
+    def calculate_fare(self, distance: float) -> float:
+        return distance * 5
+
+class LuxuryFareCalculator(FareCalculator):
+    def calculate_fare(self, distance: float) -> float:
+        return distance * 10
+
+class PoolFareCalculator(FareCalculator):
+    def calculate_fare(self, distance: float) -> float:
+        return distance * 3
+
+#creating fare calculators
+class FareCalculatorFactory:
+    @staticmethod
+    def get_fare_calculator(ride_type: RideType) -> FareCalculator:
+        calculators = {
+            RideType.ECONOMY: EconomyFareCalculator(),
+            RideType.LUXURY: LuxuryFareCalculator(),
+            RideType.POOL: PoolFareCalculator()
+        }
+        return calculators[ride_type]
+
+class Customer:
+    def __init__(self, name: str):
+        self.name = name
+
+    def __str__(self) -> str:
+        return f"Customer: {self.name}"
+
+class Driver:
+    def __init__(self, name: str):
+        self.name = name
+        self.status = DriverStatus.AVAILABLE
+
+    def is_available(self) -> bool:
+        return self.status == DriverStatus.AVAILABLE
+
+    def assign_ride(self) -> None:
+        self.status = DriverStatus.OCCUPIED
+
+    def complete_ride(self) -> None:
+        self.status = DriverStatus.AVAILABLE
+
+    def __str__(self) -> str:
+        return f"Driver: {self.name} ({self.status.value})"
+
+class Ride:
+    def __init__(self, customer: Customer, pickup_location: str, 
+                 dropoff_location: str, distance: float, ride_type: RideType):
+        self.customer = customer
+        self.pickup_location = pickup_location
+        self.dropoff_location = dropoff_location
+        self.distance = distance
+        self.ride_type = ride_type
+        self.driver: Optional[Driver] = None
+        self.fare = 0.0
+
+    def assign_driver(self, driver: Driver) -> None:
+        self.driver = driver
+        driver.assign_ride()
+
+    def calculate_fare(self) -> float:
+        fare_calculator = FareCalculatorFactory.get_fare_calculator(self.ride_type)
+        self.fare = fare_calculator.calculate_fare(self.distance)
+        return self.fare
+
+    def __str__(self) -> str:
+        driver_name = self.driver.name if self.driver else "No driver assigned"
+        return (f"Ride: {self.customer.name} from {self.pickup_location} "
+                f"to {self.dropoff_location}, Distance: {self.distance} miles, "
+                f"Type: {self.ride_type.value}, Fare: ${self.fare}, Driver: {driver_name}")
+
+# Interface Inversion Principles
+class DriverManager(ABC):
+    @abstractmethod
+    def add_driver(self, driver: Driver) -> None:
+        pass
+
+    @abstractmethod
+    def get_available_driver(self) -> Optional[Driver]:
+        pass
+
+class CustomerManager(ABC):
+    @abstractmethod
+    def add_customer(self, customer: Customer) -> None:
+        pass
+
+class RideManager(ABC):
+    @abstractmethod
+    def book_ride(self, customer: Customer, pickup_location: str, 
+                  dropoff_location: str, distance: float, ride_type: RideType) -> Optional[Ride]:
+        pass
+
+# Single Responsibility Principle
+class SimpleDriverManager(DriverManager):
+    def __init__(self):
+        self.drivers: List[Driver] = []
+
+    def add_driver(self, driver: Driver) -> None:
+        self.drivers.append(driver)
+
+    def get_available_driver(self) -> Optional[Driver]:
+        for driver in self.drivers:
+            if driver.is_available():
+                return driver
+        return None
+
+    def get_all_drivers(self) -> List[Driver]:
+        return self.drivers.copy()
+
+class SimpleCustomerManager(CustomerManager):
+    def __init__(self):
+        self.customers: List[Customer] = []
+
+    def add_customer(self, customer: Customer) -> None:
+        self.customers.append(customer)
+
+    def get_all_customers(self) -> List[Customer]:
+        return self.customers.copy()
+
+class SimpleRideManager(RideManager):
+    def __init__(self, driver_manager: DriverManager):
+        self.driver_manager = driver_manager
+        self.rides: List[Ride] = []
+
+    def book_ride(self, customer: Customer, pickup_location: str, 
+                  dropoff_location: str, distance: float, ride_type: RideType) -> Optional[Ride]:
+        ride = Ride(customer, pickup_location, dropoff_location, distance, ride_type)
+        ride.calculate_fare()
+        
+        available_driver = self.driver_manager.get_available_driver()
+        if available_driver:
+            ride.assign_driver(available_driver)
+            self.rides.append(ride)
+            return ride
+        else:
+            return None
+
+# Main System Class Dependency Inversion Principle
+class SwiftRideSystem:
+    def __init__(self):
+        self.driver_manager = SimpleDriverManager()
+        self.customer_manager = SimpleCustomerManager()
+        self.ride_manager = SimpleRideManager(self.driver_manager)
+
+    def add_driver(self, name: str) -> Driver:
+        driver = Driver(name)
+        self.driver_manager.add_driver(driver)
+        return driver
+
+    def add_customer(self, name: str) -> Customer:
+        customer = Customer(name)
+        self.customer_manager.add_customer(customer)
+        return customer
+
+    def request_ride(self, customer_name: str, pickup_location: str, 
+                     dropoff_location: str, distance: float, ride_type: str) -> None:
+        # Find customer
+        customer = None
+        for c in self.customer_manager.get_all_customers():
+            if c.name == customer_name:
+                customer = c
+                break
+        
+        if not customer:
+            print(f"Customer {customer_name} not found.")
+            return
+
+        # Convert string to RideType enum
+        try:
+            ride_type_enum = RideType(ride_type)
+        except ValueError:
+            print(f"Invalid ride type: {ride_type}")
+            return
+
+        # Book the ride
+        ride = self.ride_manager.book_ride(customer, pickup_location, dropoff_location, 
+                                           distance, ride_type_enum)
+        
+        if ride:
+            print(f"Ride Fare: ${int(ride.fare)}, Driver: {ride.driver.name}")
+        else:
+            print("No drivers available.")
+
+# Test the system
+def main():
+    # Create the SwiftRide system
+    swift_ride = SwiftRideSystem()
+    
+    print("=== SwiftRide System Test ===")
+    print()
+    
+    # Task 1 and 2 Create drivers
+    print("Creating drivers...")
+    alice = swift_ride.add_driver("Alice")
+    bob = swift_ride.add_driver("Bob")
+    print(f"Created driver: {alice.name}")
+    print(f"Created driver: {bob.name}")
+    print()
+    
+    # Task 3, 4 and 5 Create customers
+    print("Creating customers...")
+    john = swift_ride.add_customer("John")
+    rebecca = swift_ride.add_customer("Rebecca")
+    mike = swift_ride.add_customer("Mike")
+    print(f"Created customer: {john.name}")
+    print(f"Created customer: {rebecca.name}")
+    print(f"Created customer: {mike.name}")
+    print()
+    
+    # Task 6: John's ride (Economy, 15 miles, Airport to Downtown)
+    print("Task 6: John's ride request...")
+    swift_ride.request_ride("John", "Airport", "Downtown", 15, "Economy")
+    print()
+    
+    # Task 7: Rebecca's ride (Luxury, 10 miles, College to Downtown)
+    print("Task 7: Rebecca's ride request...")
+    swift_ride.request_ride("Rebecca", "College", "Downtown", 10, "Luxury")
+    print()
+    
+    # Task 8: Mike's ride (Pool, 5 miles, Downtown to Shopping Mall)
+    print("Task 8: Mike's ride request...")
+    swift_ride.request_ride("Mike", "Downtown", "Shopping Mall", 5, "Pool")
+    print()
+
+if __name__ == "__main__":
+    main()
